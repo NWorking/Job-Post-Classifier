@@ -90,9 +90,10 @@ def _normalise_result(result: dict) -> dict:
             result[key] = None
     return result
 
-SUPABASE_URL = os.environ.get("SUPABASE_URL", "")
-SUPABASE_KEY = os.environ.get("SUPABASE_KEY", "")
-TABLE_NAME = os.environ.get("SUPABASE_TABLE", "")
+SUPABASE_URL = st.secrets.get("SUPABASE_URL", "")
+SUPABASE_KEY = st.secrets.get("SUPABASE_KEY", "")
+TABLE_NAME = st.secrets.get("SUPABASE_TABLE", "")
+GROQ_API_KEY = st.secrets.get("GROQ_API_KEY","")
 
 VISION_MODEL = "qwen/qwen3.6-27b"   # currently the only model from groq that supports image as input
 JSON_MODEL = "openai/gpt-oss-20b"
