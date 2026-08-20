@@ -1,0 +1,4 @@
+python-dotenv>=1.0.0
+supabase>=2.0.0
+groq>=1.0.0
+streamlit>=1.38.0
