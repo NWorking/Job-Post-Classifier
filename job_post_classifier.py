@@ -48,6 +48,7 @@ import json
 import mimetypes
 import os
 import sys
+import streamlit as st
 
 from dotenv import load_dotenv 
 from groq import Groq
@@ -421,51 +422,3 @@ def main():
 if __name__ == "__main__":
     main()
 
-test_post = """LAST MINUTE CASTING CALL
-R.J. DECKER, Season 2
-Wilmington, NC - CASTLE HAYNE area -
---BACKGROUND ACTOR ROLES--
-Please read role descriptions carefully
-Film date/s is listed with each role
-IF SUBMITTING FOR BOTH ROLES ONLY SEND 1 EMAIL
-__________________
--ANGLER- Tue 8/18 & possibly Wed 8/19
-ALL RACES, ALL GENDERS, ages 18 & up
-*note in your submission if you're available to work Tuesday & Wednesday or only Tuesday
-Rate: $96/8
-__________________
--VENDOR- MUST WORK BOTH DATES Tues 8/18 & Wed 8/19
-ALL RACES, ALL GENDERS, ages 25 & up
-Rate: $96/8
-___________________
-___SUBMISSION INSTRUCTIONS___
-You MUST follow all photo & submission instructions as listed OR YOU WILL NOT BE CONSIDERED!
--Must be 100% available for the date/s you are submitting for
--Must work local to the Wilmington, NC area (Castle Hayne). Travel & lodging is NOT paid for by production.
--PHOTO SUBMISSION INFORMATION-
--SUBMIT ONLY 2 PHOTOS:
-1 FULL BODY PHOTO
-1 HEADSHOT FRAMED SHOULDERS UP
--Photos MUST be TAKEN WITHIN THE LAST 48 HOURS in good lighting. We prefer photos be taken today.
--NO FILTERS & NO PROFESSIONAL PHOTOS
--NO MIRROR SELFIES, NO CAR SELFIES, NO SUNGLASSES, NO HATS & NO OTHER PEOPLE IN THE PHOTO WITH YOU!
-**Submit via email stewartcastingbg@gmail.com**
-Subject line of email should be the role/s that you're submitting for
-**IF YOU ARE SUBMITTING FOR BOTH ROLES ONLY SEND 1 EMAIL**
-ALL OF THE FOLLOWING MUST BE INCLUDED IN YOUR SUBMISSION ALONG WITH 2 PHOTOS:
--NAME-
--PHONE NUMBER-
--AGE-
--HEIGHT-
--WEIGHT-
--SHIRT SIZE-
--PANT SIZE-
--SHOE SIZE-
--COLOR, YEAR, MAKE & MODEL of VEHICLE-
--LIST ANY VISIBLE TATTOOS &/OR PIERCINGS-
--LIST PREVIOUS SCENES YOU WORKED THIS SEASON-
--IF SUBMITTING AS ANGLER please note if you're available both dates or only Tuesday 8/18
--CITY, STATE YOU LIVE-
--IF NOT LOCAL TO WILMINGTON, NC, PLEASE CONFIRM YOU UNDERSTAND YOU ARE RESPONSIBLE FOR TRAVEL COST-"""
-
-# classify_post(test_post, image_path=None, response_format=schema)
