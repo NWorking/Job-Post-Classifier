@@ -92,10 +92,10 @@ def _normalise_result(result: dict) -> dict:
             result[key] = None
     return result
 
-SUPABASE_URL = os.environ.get("SUPABASE_URL", "")
-SUPABASE_KEY = os.environ.get("SUPABASE_KEY", "")
+SUPABASE_URL = st.secrets.get("SUPABASE_URL", "")
+SUPABASE_KEY = st.secrets.get("SUPABASE_KEY", "")
 # New table constants matching the updated schema
-POSTS_TABLE = os.environ.get("SUPABASE_TABLE", "posts")
+POSTS_TABLE = st.secrets.get("SUPABASE_TABLE", "posts")
 POSITIONS_TABLE = "positions"
 
 VISION_MODEL = "qwen/qwen3.6-27b"   # currently the only model from groq that supports image as input
