@@ -107,7 +107,7 @@ if not st.session_state.submitted and submit:
     except Exception as exc:
         st.error(f"❗️ An error occurred: {type(exc).__name__}: {exc}")
         # For debugging you can uncomment the next line to see a traceback:
-        # st.exception(exc)
+        st.exception(exc)
 
     finally:
         # Clean up the temporary image file if we created one.
