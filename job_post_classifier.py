@@ -63,13 +63,13 @@ load_dotenv()
 # Helper to enforce schema consistency
 
 def _normalise_result(result: dict) -> dict:
-    """Coerce ``isjob`` to a bool and null‑out position fields when not a job."""
-    raw = result.get("isjob")
+    """Coerce ``is_job`` to a bool and null‑out position fields when not a job."""
+    raw = result.get("is_job")
     if isinstance(raw, str):
-        isjob = raw.strip().lower() == "true"
+        is_job = raw.strip().lower() == "true"
     else:
-        isjob = bool(raw)
-    result["isjob"] = isjob
+        is_job = bool(raw)
+    result["is_job"] = is_job
 
     # Position‑level fields that must be null if this is not a job posting
     position_fields = [
@@ -87,15 +87,15 @@ def _normalise_result(result: dict) -> dict:
         "city",
         "state",
     ]
-    if not isjob:
+    if not is_job:
         for key in position_fields:
             result[key] = None
     return result
 
-SUPABASE_URL = os.environ.get("SUPABASE_URL", "")
-SUPABASE_KEY = os.environ.get("SUPABASE_KEY", "")
+SUPABASE_URL = st.secrets.get("SUPABASE_URL", "")
+SUPABASE_KEY = st.secrets.get("SUPABASE_KEY", "")
 # New table constants matching the updated schema
-POSTS_TABLE = os.environ.get("SUPABASE_TABLE", "posts")
+POSTS_TABLE = st.secrets.get("SUPABASE_TABLE", "posts")
 POSITIONS_TABLE = "positions"
 
 VISION_MODEL = "qwen/qwen3.6-27b"   # currently the only model from groq that supports image as input
@@ -108,7 +108,7 @@ Respond ONLY with JSON, no markdown fences, no preamble, no commentary.
 
 Schema:
 {
-  \"isjob\": true | false,
+  \"is_job\": true | false,
 
   /* ── Post‑level fields ─────────────────────────────────────── */
   \"post_type\": \"workshop info\" | \"update\" | \"warning\" | \"announcement\" |
@@ -135,15 +135,15 @@ Schema:
   \"num_spots\": integer (default 1) | null,
   \"compensation_details\": \"pay/compensation description\" | null,
   \"city\": \"city name\" | null,
-  \"state\": \"2‑letter state code\" | null
+  \"state\": \"2-letter state code\" | null
 }
 
-Only fill the position‑level fields when \"isjob\" is true; otherwise set them to null.
+Only fill the position-level fields when \"is_job\" is true; otherwise set them to null.
 \"vetted\" MUST ONLY be set to \"yes\" or \"no\" if the post explicitly states it – otherwise use \"unclear\".
 \"age_raw\" should be extracted verbatim, not converted.
-\"relevant_date\" must be an actual date (YYYY‑MM‑DD) when the post states a date; use \"relevant_date_label\" to note what the date means.
-\"acting_or_modeling\" is a coarse 2‑way split; \"job_type\" is the finer‑grained classification.
-Do NOT set a \"status\" field – it defaults to \"active\" in the DB."""
+\"relevant_date\" must be an actual date (YYYY-MM-DD) when the post states a date; use \"relevant_date_label\" to note what the date means.
+\"acting_or_modeling\" is a coarse 2-way split; \"job_type\" is the finer-grained classification.
+Do NOT set a \"status\" field - it defaults to \"active\" in the DB."""
 
 # prompt for step 2 model call
 STEP_2_SYSTEM_PROMPT = """You are a JSON formatter for Facebook job-board posts.
@@ -165,7 +165,7 @@ schema = {
             "type": "object",
             "properties": {
                 # Post-level
-                "isjob": {"type": "boolean"},
+                "is_job": {"type": "boolean"},
                 "post_type": {
                     "type": ["string", "null"],
                     "enum": ["workshop info", "update", "warning", "announcement", "question", "other"]
@@ -213,7 +213,7 @@ schema = {
                 }
             },
             "required": [
-                "isjob", "post_type", "urls", "vetted", "relevant_date",
+                "is_job", "post_type", "urls", "vetted", "relevant_date",
                 "relevant_date_label", "summary", "raw_text", "source_url",
                 "acting_or_modeling", "job_type", "job_title", "paid_status",
                 "required_skills", "age_raw", "age_bucket",
@@ -325,7 +325,7 @@ def insert_result(client: Client, result: dict, raw_text: str):
     """
     # ---------- Build and insert the post row ----------
     post_row = {
-        "is_job": result.get("isjob"),
+        "is_job": result.get("is_job"),
         "post_type": result.get("post_type"),
         "urls": result.get("urls"),
         "vetted": result.get("vetted"),
