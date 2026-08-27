@@ -60,37 +60,7 @@ from supabase import create_client, Client
 # ----------------------------------------------------------------------------
 load_dotenv()
 
-# Helper to enforce schema consistency
 
-def _normalise_result(result: dict) -> dict:
-    """Coerce ``is_job`` to a bool and null‑out position fields when not a job."""
-    raw = result.get("is_job")
-    if isinstance(raw, str):
-        is_job = raw.strip().lower() == "true"
-    else:
-        is_job = bool(raw)
-    result["is_job"] = is_job
-
-    # Position‑level fields that must be null if this is not a job posting
-    position_fields = [
-        "acting_or_modeling",
-        "job_type",
-        "job_title",
-        "paid_status",
-        "required_skills",
-        "age_raw",
-        "age_bucket",
-        "ethnicity_requested",
-        "gender_raw",
-        "num_spots",
-        "compensation_details",
-        "city",
-        "state",
-    ]
-    if not is_job:
-        for key in position_fields:
-            result[key] = None
-    return result
 
 SUPABASE_URL = st.secrets.get("SUPABASE_URL", "")
 SUPABASE_KEY = st.secrets.get("SUPABASE_KEY", "")
@@ -101,49 +71,106 @@ POSITIONS_TABLE = "positions"
 VISION_MODEL = "qwen/qwen3.6-27b"   # currently the only model from groq that supports image as input
 JSON_MODEL = "openai/gpt-oss-20b"
 
-# prompt for step 1 model call
-# should tell it to classify and output JSON, however JSON enforcement happens in step 2
-STEP_1_SYSTEM_PROMPT = """You classify posts from a private Facebook job‑board group.
-Respond ONLY with JSON, no markdown fences, no preamble, no commentary.
-
-Schema:
-{
-  \"is_job\": true | false,
-
-  /* ── Post‑level fields ─────────────────────────────────────── */
-  \"post_type\": \"workshop info\" | \"update\" | \"warning\" | \"announcement\" |
-               \"question\" | \"other\" | null,
-  \"urls\": \"any URLs found in the post\" | null,
-  \"vetted\": \"yes\" | \"no\" | \"unclear\",
-  \"relevant_date\": "YYYY‑MM‑DD" | null,
-  \"relevant_date_label\": \"what the date refers to (e.g. 'audition date')\" | null,
-  \"summary\": \"one plain‑language sentence summarizing the post\",
-  \"raw_text\": \"original post text\",
-  \"source_url\": \"URL of the source post\" | null,
-
-  /* ── Position‑level fields (one position per post) ─────────────── */
-  \"acting_or_modeling\": \"acting\" | \"modeling\" | \"unclear\",
-  \"job_type\": \"fashion show\" | \"modeling\" | \"acting\" | \"hosting\" | \"other\",
-  \"job_title\": \"title of the job\" | null,
-  \"paid_status\": \"paid\" | \"unpaid\" | \"unclear\",
-  \"required_skills\": \"list of required skills\" | null,
-  \"age_raw\": \"verbatim age description\" | null,
-  \"age_bucket\": \"kids\" | \"teens\" | \"young adults\" | \"middle age\" |
-                \"seniors\" | \"all ages\" | \"unclear\",
-  \"ethnicity_requested\": \"ethnicity criteria\" | null,
-  \"gender_raw\": \"verbatim gender description\" | null,
-  \"num_spots\": integer (default 1) | null,
-  \"compensation_details\": \"pay/compensation description\" | null,
-  \"city\": \"city name\" | null,
-  \"state\": \"2-letter state code\" | null
+# referenced directly in prompt for step 1 model call
+# enforced via response_format parameter in step 2 model call
+schema = {
+    "type": "json_schema",
+    "json_schema": {
+        "name": "job_post_classification_multi",
+        "schema": {
+            "type": "object",
+            "properties": {
+                "is_job": {"type": "boolean"},
+                "post_type": {"type": ["string","null"], "enum": ["workshop info","update","warning","announcement","question","other"]},
+                "urls": {"type": ["string","null"]},
+                "vetted": {"type": ["string","null"], "enum": ["yes","no","unclear"]},
+                "relevant_date": {"type": ["string","null"], "format": "date"},
+                "relevant_date_label": {"type": ["string","null"]},
+                "summary": {"type": "string"},
+                "raw_text": {"type": "string"},
+                "source_url": {"type": ["string","null"]},
+                "positions": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "acting_or_modeling": {"type": ["string","null"], "enum": ["acting","modeling","unclear"]},
+                            "job_type": {"type": ["string","null"], "enum": ["fashion show","modeling","acting","hosting","other"]},
+                            "job_title": {"type": ["string","null"]},
+                            "paid_status": {"type": ["string","null"], "enum": ["paid","unpaid","unclear"]},
+                            "required_skills": {"type": ["string","null"]},
+                            "age_raw": {"type": ["string","null"]},
+                            "age_bucket": {"type": ["string","null"], "enum": ["kids","teens","young adults","middle age","seniors","all ages","unclear"]},
+                            "ethnicity_requested": {"type": ["string","null"]},
+                            "gender_raw": {"type": ["string","null"]},
+                            "num_spots": {"type": ["integer","null"], "minimum": 1},
+                            "compensation_details": {"type": ["string","null"]},
+                            "city": {"type": ["string","null"]},
+                            "state": {"type": ["string","null"], "maxLength": 2, "pattern": "^[A-Za-z]{2}$"}
+                        },
+                        "required": [
+                            "acting_or_modeling", "job_type", "job_title", "paid_status",
+                            "required_skills", "age_raw", "age_bucket", "ethnicity_requested",
+                            "gender_raw", "num_spots", "compensation_details", "city", "state"
+                        ],
+                        "additionalProperties": False
+                    }
+                }
+            },
+            "required": ["is_job","post_type","urls","vetted","relevant_date","relevant_date_label","summary","raw_text","source_url","positions"],
+            "additionalProperties": False
+        }
+    }
 }
 
-Only fill the position-level fields when \"is_job\" is true; otherwise set them to null.
-\"vetted\" MUST ONLY be set to \"yes\" or \"no\" if the post explicitly states it – otherwise use \"unclear\".
-\"age_raw\" should be extracted verbatim, not converted.
-\"relevant_date\" must be an actual date (YYYY-MM-DD) when the post states a date; use \"relevant_date_label\" to note what the date means.
-\"acting_or_modeling\" is a coarse 2-way split; \"job_type\" is the finer-grained classification.
-Do NOT set a \"status\" field - it defaults to \"active\" in the DB."""
+
+# prompt for step 1 model call
+# should tell it to classify and output JSON, however JSON enforcement happens in step 2
+STEP_1_SYSTEM_PROMPT = f"""You classify posts from a private Facebook job-board group.
+Respond ONLY with JSON matching the following schema, no markdown fences, no preamble, no commentary.
+
+{json.dumps(schema, indent=2)}
+
+Field guidance:
+
+POST-LEVEL fields (one set per post):
+- "is_job": true if this post is advertising one or more paid or unpaid
+  opportunities (acting, modeling, hosting, etc.). false for updates,
+  warnings, announcements, questions, or anything else that isn't itself
+  an opportunity.
+- "post_type": only relevant when is_job is false - what kind of non-job
+  post this is.
+- "vetted" MUST ONLY be set to "yes" or "no" if the post explicitly states
+  it - otherwise use "unclear". Never infer or guess this.
+- "relevant_date" must be an actual date (YYYY-MM-DD) when the post states
+  or clearly implies one (audition date, submit-by date, shoot date,
+  etc.); use "relevant_date_label" to note what that date refers to.
+- "summary" and "raw_text" always get filled regardless of is_job.
+
+POSITIONS array (one item per DISTINCT position mentioned in the post):
+- If the post is requesting multiple people for the SAME role with
+  identical requirements (e.g. "looking for 5 background actors, $100/day
+  each"), that is ONE entry in the positions array - use "num_spots" to
+  capture the headcount, do not create duplicate entries.
+- Only create separate array entries when the post describes genuinely
+  distinct roles with different requirements (different job_type,
+  different pay, different skills, different age/gender asks, etc.) -
+  for example a post advertising both a "runway model" and a "hair
+  stylist assistant" in the same post is TWO entries.
+- If is_job is false, "positions" should be an empty array.
+- A job post should almost always have at least one position when
+  is_job is true.
+- "acting_or_modeling" is a coarse 2-way split; "job_type" is the
+  finer-grained classification - fill both per position.
+- "age_raw" should be extracted verbatim as stated in the post (e.g.
+  "18+", "mid-twenties", "kids only") - do not convert to a numeric
+  range.
+- "gender_raw" should similarly be extracted verbatim (e.g. "2 male
+  actors", "female models only").
+- "state" should be a 2-letter code when a US state is identifiable.
+
+Do NOT include a "status" field anywhere - it defaults to "active" in the
+database and is not something you should set."""
 
 # prompt for step 2 model call
 STEP_2_SYSTEM_PROMPT = """You are a JSON formatter for Facebook job-board posts.
@@ -156,75 +183,25 @@ Use the assistant message as the primary source. If any required field is missin
 refer to the user message for the missing information.
 """
 
-# enforced via response_format parameter in step 2 model call
-schema = {
-    "type": "json_schema",
-    "json_schema": {
-        "name": "job_post_classification",
-        "schema": {
-            "type": "object",
-            "properties": {
-                # Post-level
-                "is_job": {"type": "boolean"},
-                "post_type": {
-                    "type": ["string", "null"],
-                    "enum": ["workshop info", "update", "warning", "announcement", "question", "other"]
-                },
-                "urls": {"type": ["string", "null"]},
-                "vetted": {
-                    "type": ["string", "null"],
-                    "enum": ["yes", "no", "unclear"]
-                },
-                "relevant_date": {"type": ["string", "null"], "format": "date"},
-                "relevant_date_label": {"type": ["string", "null"]},
-                "summary": {"type": "string"},
-                "raw_text": {"type": "string"},
-                "source_url": {"type": ["string", "null"]},
 
-                # Position-level
-                "acting_or_modeling": {
-                    "type": ["string", "null"],
-                    "enum": ["acting", "modeling", "unclear"]
-                },
-                "job_type": {
-                    "type": ["string", "null"],
-                    "enum": ["fashion show", "modeling", "acting", "hosting", "other"]
-                },
-                "job_title": {"type": ["string", "null"]},
-                "paid_status": {
-                    "type": ["string", "null"],
-                    "enum": ["paid", "unpaid", "unclear"]
-                },
-                "required_skills": {"type": ["string", "null"]},
-                "age_raw": {"type": ["string", "null"]},
-                "age_bucket": {
-                    "type": ["string", "null"],
-                    "enum": ["kids", "teens", "young adults", "middle age", "seniors", "all ages", "unclear"]
-                },
-                "ethnicity_requested": {"type": ["string", "null"]},
-                "gender_raw": {"type": ["string", "null"]},
-                "num_spots": {"type": ["integer", "null"], "minimum": 1},
-                "compensation_details": {"type": ["string", "null"]},
-                "city": {"type": ["string", "null"]},
-                "state": {
-                    "type": ["string", "null"],
-                    "maxLength": 2,
-                    "pattern": "^[A-Za-z]{2}$"
-                }
-            },
-            "required": [
-                "is_job", "post_type", "urls", "vetted", "relevant_date",
-                "relevant_date_label", "summary", "raw_text", "source_url",
-                "acting_or_modeling", "job_type", "job_title", "paid_status",
-                "required_skills", "age_raw", "age_bucket",
-                "ethnicity_requested", "gender_raw", "num_spots",
-                "compensation_details", "city", "state"
-            ],
-            "additionalProperties": False
-        }
-    }
-}
+# Helper to enforce schema consistency
 
+def _normalise_result(result: dict) -> dict:
+    """Coerce ``is_job`` to a bool and ensure the ``positions`` array matches schema."""
+    raw = result.get("is_job")
+    if isinstance(raw, str):
+        is_job = raw.strip().lower() == "true"
+    else:
+        is_job = bool(raw)
+    result["is_job"] = is_job
+
+    # Ensure a positions list exists; if not a job, clear positions.
+    if not is_job:
+        result["positions"] = []
+    else:
+        # If positions missing, default to empty list to avoid key errors downstream.
+        result.setdefault("positions", [])
+    return result
 
 
 # ----------------------------------------------------------------------------
@@ -381,6 +358,63 @@ def insert_result(client: Client, result: dict, raw_text: str):
 
 
 
+# Updated insert_result to handle multiple positions
+def insert_result(client: Client, result: dict, raw_text: str):
+    """Insert a post row and multiple position rows, linking via post_id."""
+    # Build and insert the post row
+    post_row = {
+        "is_job": result.get("is_job"),
+        "post_type": result.get("post_type"),
+        "urls": result.get("urls"),
+        "vetted": result.get("vetted"),
+        "relevant_date": result.get("relevant_date"),
+        "relevant_date_label": result.get("relevant_date_label"),
+        "summary": result.get("summary"),
+        "raw_text": (raw_text or "")[:2000],
+        "source_url": result.get("source_url"),
+        # "status" omitted – DB defaults to 'active'
+    }
+    post_resp = client.table(POSTS_TABLE).insert(post_row).execute()
+    post_id = post_resp.data[0]["id"] if post_resp.data else None
+
+    if post_id is None:
+        raise RuntimeError(f"Failed to insert post row, got: {post_resp}")
+
+
+    # Insert each position
+    for pos in result.get("positions", []):
+        # Derive gender flags per position
+        gender_raw = (pos.get("gender_raw") or "").lower()
+        is_male = None
+        is_female = None
+        if gender_raw:
+            if "female" in gender_raw or "women" in gender_raw:
+                is_female = True
+            if ("male" in gender_raw or "men" in gender_raw) and "female" not in gender_raw:
+                is_male = True
+            if ("female" in gender_raw) and ("male" in gender_raw or "men" in gender_raw):
+                is_male = True
+                is_female = True
+
+        position_row = {
+            "post_id": post_id,
+            "acting_or_modeling": pos.get("acting_or_modeling"),
+            "job_type": pos.get("job_type"),
+            "job_title": pos.get("job_title"),
+            "paid_status": pos.get("paid_status"),
+            "required_skills": pos.get("required_skills"),
+            "age_raw": pos.get("age_raw"),
+            "age_bucket": pos.get("age_bucket"),
+            "ethnicity_requested": pos.get("ethnicity_requested"),
+            "gender_raw": pos.get("gender_raw"),
+            "is_male": is_male,
+            "is_female": is_female,
+            "num_spots": pos.get("num_spots") or 1,
+            "compensation_details": pos.get("compensation_details"),
+            "city": pos.get("city"),
+            "state": pos.get("state"),
+        }
+        client.table(POSITIONS_TABLE).insert(position_row).execute()
 # ----------------------------------------------------------------------------
 # CLI
 # ----------------------------------------------------------------------------
