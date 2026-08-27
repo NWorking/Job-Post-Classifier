@@ -266,7 +266,7 @@ def classify_post(text: str | None, image_path: str | None, response_format: dic
         messages=json_messages,
         response_format=response_format,
         temperature=0,
-        max_completion_tokens=2000
+        max_completion_tokens=4000
     )
     raw_json = json_response.choices[0].message.content
     cleaned = (
