@@ -149,7 +149,7 @@ POST-LEVEL fields (one set per post):
 
 POSITIONS array (one item per DISTINCT position mentioned in the post):
 - If the post is requesting multiple people for the SAME role with
-  identical requirements (e.g. "looking for 5 background actors, $100/day
+    identical requirements (e.g. "looking for 5 background actors, $100/day
   each"), that is ONE entry in the positions array - use "num_spots" to
   capture the headcount, do not create duplicate entries.
 - Only create separate array entries when the post describes genuinely
@@ -266,7 +266,7 @@ def classify_post(text: str | None, image_path: str | None, response_format: dic
         messages=json_messages,
         response_format=response_format,
         temperature=0,
-        max_completion_tokens=2000
+        max_completion_tokens=4000
     )
     raw_json = json_response.choices[0].message.content
     cleaned = (
@@ -296,69 +296,7 @@ def get_client() -> Client:
     return create_client(SUPABASE_URL, SUPABASE_KEY)
 
 
-def insert_result(client: Client, result: dict, raw_text: str):
-    """Split the classification result into a post row and a position row,
-    insert the post first to get its generated ``id``, then insert the position.
-    """
-    # ---------- Build and insert the post row ----------
-    post_row = {
-        "is_job": result.get("is_job"),
-        "post_type": result.get("post_type"),
-        "urls": result.get("urls"),
-        "vetted": result.get("vetted"),
-        "relevant_date": result.get("relevant_date"),
-        "relevant_date_label": result.get("relevant_date_label"),
-        "summary": result.get("summary"),
-        "raw_text": (raw_text or "")[:2000],
-        "source_url": result.get("source_url"),
-        # "status" omitted – DB defaults to 'active'
-    }
-    post_resp = client.table(POSTS_TABLE).insert(post_row).execute()
-    # Supabase returns inserted rows under the 'data' key
-    post_id = None
-    if isinstance(post_resp, dict):
-        data = post_resp.get("data")
-        if isinstance(data, list) and data:
-            post_id = data[0].get("id")
-
-    # ---------- Derive gender flags from gender_raw ----------
-    gender_raw = (result.get("gender_raw") or "").lower()
-    is_male = None
-    is_female = None
-    if gender_raw:
-        if "female" in gender_raw or "women" in gender_raw:
-            is_female = True
-        if ("male" in gender_raw or "men" in gender_raw) and "female" not in gender_raw:
-            is_male = True
-        if ("female" in gender_raw) and ("male" in gender_raw or "men" in gender_raw):
-            is_male = True
-            is_female = True
-
-    # ---------- Build and insert the position row ----------
-    position_row = {
-        "post_id": post_id,
-        "acting_or_modeling": result.get("acting_or_modeling"),
-        "job_type": result.get("job_type"),
-        "job_title": result.get("job_title"),
-        "paid_status": result.get("paid_status"),
-        "required_skills": result.get("required_skills"),
-        "age_raw": result.get("age_raw"),
-        "age_bucket": result.get("age_bucket"),
-        "ethnicity_requested": result.get("ethnicity_requested"),
-        "gender_raw": result.get("gender_raw"),
-        "is_male": is_male,
-        "is_female": is_female,
-        "num_spots": result.get("num_spots") or 1,
-        "compensation_details": result.get("compensation_details"),
-        "city": result.get("city"),
-        "state": result.get("state"),
-    }
-    client.table(POSITIONS_TABLE).insert(position_row).execute()
-
-
-
-
-# Updated insert_result to handle multiple positions
+# insert_result to handle multiple positions from a single post
 def insert_result(client: Client, result: dict, raw_text: str):
     """Insert a post row and multiple position rows, linking via post_id."""
     # Build and insert the post row
