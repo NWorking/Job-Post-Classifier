@@ -160,7 +160,7 @@ show_expired = st.sidebar.checkbox("Show expired postings", value=False)
 # ---------------------------------------------------------------------------
 # Apply filters
 # ---------------------------------------------------------------------------
- today = date.today()
+today = date.today()
 
 def passes_filters(row: Dict[str, Any]) -> bool:
     if acting_sel and row["acting_or_modeling"] not in acting_sel:
