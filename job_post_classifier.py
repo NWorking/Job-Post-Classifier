@@ -68,7 +68,7 @@ SUPABASE_KEY = st.secrets.get("SUPABASE_KEY", "")
 POSTS_TABLE = st.secrets.get("SUPABASE_TABLE", "posts")
 POSITIONS_TABLE = "positions"
 
-VISION_MODEL = "qwen/qwen3.6-27b"   # currently the only model from groq that supports image as input
+VISION_MODEL = "qwen/qwen3.8-27b"   # currently the only model from groq that supports image as input
 JSON_MODEL = "openai/gpt-oss-20b"
 
 # referenced directly in prompt for step 1 model call
