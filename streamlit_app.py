@@ -97,6 +97,8 @@ if not st.session_state.submitted:
 
             # Mark as submitted – this will hide the form on the next run.
             st.session_state.submitted = True
+            # Force an immediate rerun so the form disappears now.
+            st.rerun()
         except Exception as exc:
             st.error(f"❗️ An error occurred: {type(exc).__name__}: {exc}")
             st.exception(exc)
@@ -126,4 +128,4 @@ if st.session_state.submitted:
             st.session_state["post_text"] = ""
         st.session_state.pop("image_file", None)
         # Force a rerun so the form block is evaluated again.
-        st.experimental_rerun()
+        st.rerun()
