@@ -126,4 +126,4 @@ if st.session_state.submitted:
             st.session_state["post_text"] = ""
         st.session_state.pop("image_file", None)
         # Force a rerun so the form block is evaluated again.
-        st.experimental_rerun()
+        st.rerun()
