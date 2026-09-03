@@ -241,7 +241,7 @@ for row in sorted_rows:
         #     st.markdown(f"<u>Source</u>: [{row['source_url']}]({row['source_url']})", unsafe_allow_html=True)
         # if row.get("urls"):
         #     st.markdown(f"<u>Links</u>: {row['urls']}", unsafe_allow_html=True)
-        # st.markdown("<u>Raw post text</u>", unsafe_allow_html=True)
+        st.markdown("<u>Raw post text</u>", unsafe_allow_html=True)
         st.code(row.get("raw_text") or "(empty)")
 
 # ---------------------------------------------------------------------------
