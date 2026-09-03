@@ -62,10 +62,8 @@ def gender_label(is_male: Any, is_female: Any, gender_raw: str | None) -> str:
         low = gender_raw.lower()
         if "male" in low and "female" not in low:
             return "Male ok"
-        if "female" in low and "male" not in low:
+        if "female" in low:
             return "Female ok"
-        if "male" in low and "female" in low:
-            return "Both ok"
     return "Any/Unclear"
 
 
@@ -160,7 +158,7 @@ show_expired = st.sidebar.checkbox("Show expired postings", value=False)
 # ---------------------------------------------------------------------------
 # Apply filters
 # ---------------------------------------------------------------------------
- today = date.today()
+today = date.today()
 
 def passes_filters(row: Dict[str, Any]) -> bool:
     if acting_sel and row["acting_or_modeling"] not in acting_sel:
@@ -227,23 +225,23 @@ for row in sorted_rows:
         f"{row.get('relevant_date') or 'No date'}"
     )
     with st.expander(header, expanded=False):
-        st.markdown("**Summary**")
+        st.markdown("<u>Summary</u>", unsafe_allow_html=True)
         st.write(row.get("summary") or "(no summary)")
-        st.markdown("**Required skills**")
+        st.markdown("<u>Required skills</u>", unsafe_allow_html=True)
         st.write(row.get("required_skills") or "(none listed)")
-        st.markdown("**Age**")
+        st.markdown("<u>Age</u>", unsafe_allow_html=True)
         st.write(row.get("age_raw") or "(unspecified)")
-        st.markdown("**Ethnicity requested**")
+        st.markdown("<u>Ethnicity requested</u>", unsafe_allow_html=True)
         st.write(row.get("ethnicity_requested") or "(unspecified)")
-        st.markdown("**Compensation details**")
+        st.markdown("<u>Compensation details</u>", unsafe_allow_html=True)
         st.write(row.get("compensation_details") or "(unspecified)")
-        st.markdown("**Number of spots**")
+        st.markdown("<u>Number of spots</u>", unsafe_allow_html=True)
         st.write(row.get("num_spots") or 1)
-        if row.get("source_url"):
-            st.markdown(f"**Source**: [{row['source_url']}]({row['source_url']})")
-        if row.get("urls"):
-            st.markdown(f"**Links**: {row['urls']}")
-        st.markdown("**Raw post text**")
+        # if row.get("source_url"):
+        #     st.markdown(f"<u>Source</u>: [{row['source_url']}]({row['source_url']})", unsafe_allow_html=True)
+        # if row.get("urls"):
+        #     st.markdown(f"<u>Links</u>: {row['urls']}", unsafe_allow_html=True)
+        # st.markdown("<u>Raw post text</u>", unsafe_allow_html=True)
         st.code(row.get("raw_text") or "(empty)")
 
 # ---------------------------------------------------------------------------
