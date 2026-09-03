@@ -114,11 +114,7 @@ if not st.session_state.submitted:
 # Show results (and the "Add another post" button) after a successful submit
 # ----------------------------------------------------------------------
 if st.session_state.submitted:
-    # The extracted fields stay visible.
-    if st.session_state.result is not None:
-        render_json(st.session_state.result, title="🧾 Extracted fields")
-
-    # Button to start a new classification run.
+    # Button to start a new classification run – placed above the extracted fields.
     if st.button("Add another post"):
         # Reset session state for a fresh run.
         st.session_state.submitted = False
@@ -129,3 +125,7 @@ if st.session_state.submitted:
         st.session_state.pop("image_file", None)
         # Force a rerun so the form block is evaluated again.
         st.rerun()
+
+    # The extracted fields stay visible.
+    if st.session_state.result is not None:
+        render_json(st.session_state.result, title="🧾 Extracted fields")

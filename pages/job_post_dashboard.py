@@ -27,7 +27,7 @@ from job_post_classifier import get_client
 # Helper functions
 # ---------------------------------------------------------------------------
 
-@st.cache_data(show_spinner=False)
+@st.cache_data(ttl=60, show_spinner=False)
 def load_posts_and_positions() -> tuple[Dict[int, Dict[str, Any]], List[Dict[str, Any]]]:
     """Fetch all posts and positions from Supabase.
 
